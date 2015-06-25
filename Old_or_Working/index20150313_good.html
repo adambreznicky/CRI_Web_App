@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<!--
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+-->
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <title>TxDOT County Road Inventory</title>
+        <link rel="stylesheet" href="http://js.arcgis.com/3.9/js/dojo/dijit/themes/claro/claro.css">
+        <link rel="stylesheet" href="http://js.arcgis.com/3.9/js/esri/css/esri.css">
+        <style type="text/css">
+            html, body, #divMap {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            }
+            body {
+              background-color: rgb(20,56,92);
+              overflow: hidden;
+              font-family: "Trebuchet MS";
+            }
+            #bcMain, #cpCenter {
+              width: 100%;
+              height: 100%;
+            }
+            #cpCenter, #openWindowCP {
+              margin: 0;
+              padding: 0;
+            }
+            #cpTop {
+              height:60px;
+              margin: 0;
+              padding: 0;
+            }
+            #cpLeft {
+              width: 200px;
+              text-align: center;
+              margin: 0;
+              padding: 0;
+            }
+            #cpLeftTopTitle {
+              margin: 0;
+              padding: 0;
+              border: none;
+              font-size: medium;
+              text-align: center;
+              font-weight: bold;
+              color: rgb(20,56,92);
+            }
+            #cpLeftTop, #cpLeftCenter, #cpLeftBottom {
+                border: none;
+            }
+            #cpTopRight {
+              overflow: hidden;
+              margin: 0;
+              padding: 0;
+            }
+            #info{
+             position: absolute;
+             bottom: 3px;
+             left: 22px;
+             z-index: 50;
+             color: #303030;
+             font-weight: bold;
+             text-shadow: -1px 0 white, 0 1px white, 1px 0 white, 0 -1px white;
+            }
+        </style>
+        <script> var dojoConfig = {async: true, parseOnLoad: true};</script>
+        <script src="http://js.arcgis.com/3.12/"></script>
+        <script>
+            var map;
+            var countiesURL;
+            var counties;
+            var updatesURL;
+            var updatesLyr;
+            var countyNumber;
+            var crURL;
+            var countyroads;
+            var geomServ;
+            var widgetEditor;
+            var tpCustom;
+            var selectorLabel;
+            
+             require(["esri/map",
+                "esri/layers/FeatureLayer",
+                "esri/geometry/Extent",
+                "esri/dijit/BasemapGallery",
+                "esri/dijit/Basemap",
+                "esri/dijit/Legend",
+                
+                "esri/tasks/query",
+                "esri/tasks/QueryTask",
+                "esri/graphic",
+                "esri/renderers/UniqueValueRenderer",
+                "esri/symbols/SimpleLineSymbol",
+                "esri/Color",
+                "esri/renderers/SimpleRenderer",
+                
+                "esri/tasks/GeometryService",
+                "esri/dijit/editing/Editor",
+                "esri/dijit/editing/TemplatePicker",
+                "esri/tasks/LengthsParameters",
+                "esri/geometry/geodesicUtils",
+                "esri/config",
+                
+                "esri/geometry/Geometry",
+                "esri/units",
+                "dojo/ready", 
+                "dojo/parser", 
+                "dojo/on",
+                "dojo/dom",
+                "dojo/_base/array",
+                "esri/arcgis/utils",
+                "esri/layers/ArcGISTiledMapServiceLayer",
+
+                "esri/SpatialReference",
+                "esri/geometry/webMercatorUtils",
+                "esri/dijit/Scalebar",
+                "esri/symbols/TextSymbol",
+                "esri/layers/LabelLayer",
+
+                "dijit/form/Select",
+                "dijit/layout/BorderContainer", 
+                "dijit/layout/ContentPane",
+                
+                
+                "dojo/domReady!"], 
+            function(Map, FeatureLayer, Extent, BasemapGallery, Basemap, Legend,
+                    Query, QueryTask, Graphic, UniqueValueRenderer, SimpleLineSymbol, Color, SimpleRenderer,
+                    GeometryService, Editor, TemplatePicker, LengthsParameters, geodesicUtils, config,
+                    Geometry, Units, ready, parser, on, dom, array, arcgisUtils, Tiled,
+                    SpatialReference, webMercatorUtils, Scalebar, TextSymbol, LabelLayer) {
+                ready(function(){
+                
+                config.defaults.io.proxyUrl = "http://localhost/proxy/proxy.ashx";
+                
+                geomServ = new GeometryService("http://tasks.arcgisonline.com/ArcGIS/rest/services/Geometry/GeometryServer");
+                
+                
+                map = new Map("divMap", {
+                    minZoom:6,
+                    maxZoom:16,
+                    showlabels: true,
+                    logo: false
+                });
+                map.on("load", function() {
+		  map.on("mouse-move", showCoordinates);
+                  map.on("mouse-drag", showCoordinates);
+                });
+
+		tiled = new Tiled("http://tiles.arcgis.com/tiles/KTcxiTD9dsQw4r7Z/arcgis/rest/services/Statewide_Planning_Map/MapServer");
+		map.addLayer(tiled);
+                
+                var theExtent = new Extent(-107,25.27,-93,37.27, new esri.SpatialReference({ wkid: 4269 }));
+		map.setExtent(esri.geometry.geographicToWebMercator(theExtent));
+
+                var basemaps = new BasemapGallery({
+                    map: map
+                }, "basemapGallery");
+                basemaps.startup();
+                var planningmap = new Basemap({
+                    title: "TxDOT Statewide Planning Map",
+                    thumbnailUrl: "./RESOURCES/statewideplanningmap.png",
+                    layers:[tiled]
+                });
+                basemaps.add(planningmap);
+                
+                var scalebar = new Scalebar({
+                    map: map,
+                    scalebarUnit: "english",
+                    attachTo: "bottom-left"
+                });
+                
+                countiesURL = "http://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/Political/FeatureServer/0";
+                counties = new FeatureLayer(countiesURL,{
+                    mode: FeatureLayer.MODE_ONDEMAND,
+                    visible: false,
+                    showLabels: false,
+                    outFields: ["CNTY_NM", "CNTY_NBR"]
+                });
+                
+//                var add = new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color("green"), 2);
+//                var remove = new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color("red"), 2);
+//                var update = new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color("yellow"), 2);
+//                var UPDATEramp = new UniqueValueRenderer(update, "CHANGE");
+//                UPDATEramp.addValue("Add", add);
+//                UPDATEramp.addValue("Remove", remove);
+//                UPDATEramp.addValue("Update", update);
+                updatesURL = "http://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/InventoryUpdates/FeatureServer/0";
+                updatesLyr = new FeatureLayer(updatesURL,{
+                    mode: FeatureLayer.MODE_ONDEMAND,
+                    visible: false,
+                    showLabels: true,
+                    outFields: ['*']
+                });
+                updatesLyr.on("click", function(){
+                    map.graphics.clear();
+                    dijit.byId("openWindow").set('open', false);
+                    dijit.byId("openWindow").set('title', "Attributes");
+                });
+                updatesLyr.on("mouse-over", function(){
+                    map.setMapCursor("pointer");
+                });
+                updatesLyr.on("mouse-out", function(){
+                    map.setMapCursor("default");
+                });
+
+//                updatesLyr.setRenderer(UPDATEramp);
+//                var dirt = new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color("brown"), 2);
+//                var gravel = new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color("orange"), 2);
+//                var paved = new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color("black"), 2);
+//                var concrete = new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color("gray"), 2);
+//                var CRramp = new UniqueValueRenderer(gravel, "SURFACE_TYPE");
+//                CRramp.addValue({value:"10", label:"Dirt/Natural", symbol:dirt});
+//                CRramp.addValue({value:"32", label:"Gravel", symbol:gravel});
+//                CRramp.addValue({value:"51", label:"Paved", symbol:paved});
+//                CRramp.addValue({value:"61", label:"Concrete", symbol:concrete});
+                crURL = "http://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/CountyRoads/FeatureServer/0";
+                countyroads = new FeatureLayer(crURL,{
+                    mode: FeatureLayer.MODE_ONDEMAND,
+                    visible: false,
+                    showLabels: true,
+                    outFields: ["*"]
+                });
+                countyroads.setDefinitionExpression("COUNTY = 0");
+//                countyroads.setRenderer(CRramp);
+                var selectCR = new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([0,255,255]), 2);
+                countyroads.on("click", function(evt){
+                    map.graphics.clear();
+                    var selected = new Graphic(evt.graphic.geometry, selectCR);
+                    map.graphics.add(selected);
+                    
+                    var desLabel;
+                    var surLabel;
+                    var graphic = evt.graphic;
+                    var attr = graphic.attributes;
+                    var cnty = attr.COUNTY;
+                    var len = attr.LEN_OF_SECTION;
+                    var surf = attr.SURFACE_TYPE;
+                    if (surf === 10) {
+                        surLabel = " - Dirt/Natural";
+                    } else if (surLabel) {
+                        surLabel = " - Gravel";
+                    } else if (surLabel) {
+                        surLabel = " - Paved";
+                    } else {
+                        surLabel = " - Concrete";
+                    }
+                    var lanes = attr.NUMBER_OF_LANES;
+                    var desg = attr.HIGHWAY_DESIGN;
+                    if (desg === 1){
+                        desLabel = " - One Way";
+                    } else if (desg === 2) {
+                        desLabel = " - Two Way";
+                    } else {
+                        desLabel = " - Boulevard";
+                    }
+                    var nm = attr.FULL_NAME;
+                    var content = "<b>County Number:</b> "+cnty+
+                            "<br><b>Length (Miles):</b> "+len+
+                            "<br><b>Surface Type:</b> "+surf+surLabel+
+                            "<br><b>Number of Lanes:</b> "+lanes+
+                            "<br><b>Highway Design:</b> "+desg+desLabel+
+                            "<br><b>Full Street Name:</b> "+nm;
+                    
+                    dijit.byId("openWindow").set('open', true);
+                    dijit.byId("openWindow").set('title', nm);
+                    document.getElementById("attributeWindow").innerHTML = content;
+                });
+                countyroads.on("mouse-over", function(){
+                    map.setMapCursor("pointer");
+                });
+                countyroads.on("mouse-out", function(){
+                    map.setMapCursor("default");
+                });
+           
+                map.on("layers-add-result", initEditor);
+                map.addLayers([counties, countyroads, updatesLyr]);
+
+                var labelField = "FULL_NAME";
+                var crLabel = new TextSymbol().setColor(new Color("black"));
+                crLabel.font.setSize("10pt");
+                crLabel.font.setFamily("Trebuchet MS");
+                var crLabelRenderer = new SimpleRenderer(crLabel);
+                var labels = new LabelLayer();
+                labels.addFeatureLayer(countyroads, crLabelRenderer, "{" + labelField + "}");
+                labels.addFeatureLayer(updatesLyr, crLabelRenderer, "{" + labelField + "}");
+                
+                map.addLayer(labels);
+                
+                var selector = dijit.byId("selectCounty");
+                selector.on('change', function (){
+                    countyNumber = selector.value;
+                    selectorLabel = selector.attr('displayedValue');
+                    if (countyNumber !== ""){
+                        var expression = "CNTY_NBR = " + countyNumber;
+                        
+                        var query = new Query();
+                        var queryTask = new QueryTask(countiesURL);
+                        query.where = expression;
+                        query.returnGeometry = true;
+                        queryTask.execute(query, findExtent);
+
+                        function findExtent(results){
+
+                            var theCounty = array.map(results.features, function(result){
+                                    return result;
+                            });
+                            var ext = theCounty[0].geometry.getExtent().expand(1.15);
+                            map.setExtent(ext);
+
+                        };
+                        updatesLyr.show();
+                        counties.setDefinitionExpression(expression);
+                        counties.redraw();
+                        countyroads.setDefinitionExpression("COUNTY = " + countyNumber);
+                        countyroads.show();
+                        countyroads.redraw();
+                        
+
+                        updatesLyr.on("before-apply-edits", function(g){
+                                    var features = g.adds;
+                                    var featurettes = g.updates;
+                                    array.forEach(features, function(i){
+                                        var numb = parseInt(countyNumber);
+                                        i.attributes.COUNTY = numb;
+                                        
+                                        var fixed = esri.geometry.webMercatorToGeographic(i.geometry);
+                                        var lengther = esri.geometry.geodesicLengths([fixed], esri.Units.MILES);
+                                        i.attributes.LENGTH = parseFloat(lengther);
+                                    });
+                                    array.forEach(featurettes, function(i){
+                                        var fixed = esri.geometry.webMercatorToGeographic(i.geometry);
+                                        var lengther = esri.geometry.geodesicLengths([fixed], esri.Units.MILES);
+                                        i.attributes.LENGTH = parseFloat(lengther);
+                                        
+//                                        var des = i.attributes.HIGHWAY_DESIGN;
+//                                        if (des !== null && des !== 1 && des !== 2 && des !== 3){
+//                                            alert("Bad Highway Design value!\n\nAcceptable Values:\n1 - One Way\n2 - Two Way\n3 - Boulevard");
+//                                            i.attributes.HIGHWAY_DESIGN = null;
+//                                        };
+//                                        var sur = i.attributes.SURFACE_TYPE;
+//                                        if (sur !== null && sur !== 10 && sur !== 32 && sur !== 51 && sur !== 61){
+//                                            alert("Bad Surface Type value!\n\nAcceptable Values:\n10 - Dirt/Natural\n32 - Gravel\n51 - Paved\n61 - Concrete");
+//                                            i.attributes.SURFACE_TYPE = null;
+//                                        };
+                                    }); 
+                                    
+                        });
+                        
+                        var pieces = selectorLabel.split(" - ");
+                        var theName = pieces[pieces.length - 1];
+                        var caps = theName.toUpperCase();
+                        document.getElementById("FTPlink").href = "ftp://ftp.dot.state.tx.us/pub/txdot-info/tpp/countyfiles/2015/" + caps +"_2015.zip";
+                    } else {
+                        var expression = "";
+                        counties.setDefinitionExpression(expression);
+                        counties.redraw();
+                        countyroads.setDefinitionExpression("COUNTY = 0");
+                        countyroads.hide();
+                        countyroads.redraw();
+                        updatesLyr.hide();
+                        
+                        var ext = counties.fullExtent.expand(1.25);
+                        map.setExtent(ext);
+                        
+                        document.getElementById("FTPlink").href = "ftp://ftp.dot.state.tx.us/pub/txdot-info/tpp/countyfiles/2015/";
+                    }
+                });
+                
+                function initEditor (results){
+//                    var layerInfosAll = array.map(results.layers, function(result){
+//                        return {
+//                            featureLayer: result.layer
+//                        };
+//                    });
+//                    
+//                    var layersAll = array.map(results.layers, function(result){
+//                        return result.layer;
+//                    });
+
+                    var legend = new Legend({
+                        map: map,
+                        layerInfos: [{
+                                layer: countyroads,
+                                defaultSymbol: false,
+                                title: "County Road - Surface Type"}],
+                                respectCurrentMapScale: true
+                    }, "legend");
+                    legend.startup();
+                    
+                    tpCustom = new TemplatePicker({
+                        featureLayers: [updatesLyr],
+                        grouping: false,
+                        columns: 1
+                    }, "editTemplate");
+                    tpCustom.startup();
+                    
+                    var editorSettings = {
+                        map: map,
+                        geometryService: geomServ,
+                        layerInfos: [{
+                                featureLayer:updatesLyr,
+                                fieldInfos: [{
+                                    fieldName: "CHANGE",
+                                    label: "Update Type",
+                                    isEditable: true
+                                },{
+                                    fieldName: "COUNTY",
+                                    label: "County Number",
+                                    isEditable: false
+                                },{
+                                    fieldName: "LENGTH",
+                                    label: "Length (Miles)",
+                                    isEditable: false
+                                },{
+                                    fieldName: "SURFACE_TYPE",
+                                    label: "Surface Type",
+                                    tooltip: "Acceptable Values:<br>10 - Dirt/Natural<br>32 - Gravel<br>51 - Paved<br>61 - Concrete"
+                                },{
+                                    fieldName: "NUMBER_OF_LANES",
+                                    label: "Number of Lanes"
+                                },{
+                                    fieldName: "HIGHWAY_DESIGN",
+                                    label: "Highway Design",
+                                    tooltip: "Acceptable Values:<br>1 - One Way<br>2 - Two Way<br>3 - Boulevard"
+                                },{
+                                    fieldName: "FULL_NAME",
+                                    label: "Full Street Name"
+                                },{
+                                    fieldName: "COMMENT",
+                                    label: "Comment"
+                                }]
+                            }],
+                        toolbarVisible: true,
+                        templatePicker: tpCustom,
+                        createOptions:{
+                            polylineDrawTools: [Editor.CREATE_TOOL_POLYLINE, Editor.CREATE_TOOL_FREEHAND_POLYLINE]
+                        },
+                        enableUndoRedo: true,
+                        maxUndoRedoOperations: 20
+                    };
+                    
+                    var editorParams = {
+                        settings: editorSettings
+                    };
+                    
+                    widgetEditor = new Editor(editorParams, "editBar");
+                    widgetEditor.startup();
+                }
+                
+                function showCoordinates(evt) {
+                    var mp = new esri.geometry.webMercatorToGeographic(evt.mapPoint);
+                    globalX = mp.x.toFixed(6);
+                    globalY = mp.y.toFixed(6);
+                    document.getElementById("info").innerHTML = "Level: " + map.getZoom() + ", " + mp.x.toFixed(6) + ", " + mp.y.toFixed(6);
+                }
+                
+                });
+            });
+            
+            
+            
+        </script>
+        
+    </head>
+    <body class="claro">
+      <div id="bcMain" data-dojo-type="dijit/layout/BorderContainer" data-dojo-props="design:'sidebar'" >
+        
+
+            
+        <div id="cpLeft" data-dojo-type="dijit/layout/ContentPane" data-dojo-props="region:'left'">
+            <div id="bcLeft" data-dojo-type="dijit/layout/BorderContainer" data-dojo-props="design:'sidebar'" >
+                <div id="cpLeftTopTitle" data-dojo-type="dijit/layout/ContentPane" data-dojo-props="region:'top'">County Roadway Updates
+                </div>
+                <div id="cpLeftTop" data-dojo-type="dijit/layout/ContentPane" data-dojo-props="region:'top'">
+                    Select County to Begin:
+                    <select id="selectCounty" data-dojo-type="dijit/form/Select" name="selectCounty"  style="width: 150px">
+                        <option value="" selected="selected">Select a County</option> <option value="001">001 - Anderson</option>	<option value="002">002 - Andrews</option>	<option value="003">003 - Angelina</option>	<option value="004">004 - Aransas</option>	<option value="005">005 - Archer</option>	<option value="006">006 - Armstrong</option>	<option value="007">007 - Atascosa</option>	<option value="008">008 - Austin</option>	<option value="009">009 - Bailey</option>	<option value="010">010 - Bandera</option>	<option value="011">011 - Bastrop</option>	<option value="012">012 - Baylor</option>	<option value="013">013 - Bee</option>	<option value="014">014 - Bell</option>	<option value="015">015 - Bexar</option>	<option value="016">016 - Blanco</option>	<option value="017">017 - Borden</option>	<option value="018">018 - Bosque</option>	<option value="019">019 - Bowie</option>	<option value="020">020 - Brazoria</option>	<option value="021">021 - Brazos</option>	<option value="022">022 - Brewster</option>	<option value="023">023 - Briscoe</option>	<option value="024">024 - Brooks</option>	<option value="025">025 - Brown</option>	<option value="026">026 - Burleson</option>	<option value="027">027 - Burnet</option>	<option value="028">028 - Caldwell</option>	<option value="029">029 - Calhoun</option>	<option value="030">030 - Callahan</option>	<option value="031">031 - Cameron</option>	<option value="032">032 - Camp</option>	<option value="033">033 - Carson</option>	<option value="034">034 - Cass</option>	<option value="035">035 - Castro</option>	<option value="036">036 - Chambers</option>	<option value="037">037 - Cherokee</option>	<option value="038">038 - Childress</option>	<option value="039">039 - Clay</option>	<option value="040">040 - Cochran</option>	<option value="041">041 - Coke</option>	<option value="042">042 - Coleman</option>	<option value="043">043 - Collin</option>	<option value="044">044 - Collingsworth</option>	<option value="045">045 - Colorado</option>	<option value="046">046 - Comal</option>	<option value="047">047 - Comanche</option>	<option value="048">048 - Concho</option>	<option value="049">049 - Cooke</option>	<option value="050">050 - Coryell</option>	<option value="051">051 - Cottle</option>	<option value="052">052 - Crane</option>	<option value="053">053 - Crockett</option>	<option value="054">054 - Crosby</option>	<option value="055">055 - Culberson</option>	<option value="056">056 - Dallam</option>	<option value="057">057 - Dallas</option>	<option value="058">058 - Dawson</option>	<option value="059">059 - Deaf Smith</option>	<option value="060">060 - Delta</option>	<option value="061">061 - Denton</option>	<option value="062">062 - De Witt</option>	<option value="063">063 - Dickens</option>	<option value="064">064 - Dimmit</option>	<option value="065">065 - Donley</option>	<option value="066">066 - Kenedy</option>	<option value="067">067 - Duval</option>	<option value="068">068 - Eastland</option>	<option value="069">069 - Ector</option>	<option value="070">070 - Edwards</option>	<option value="071">071 - Ellis</option>	<option value="072">072 - El Paso</option>	<option value="073">073 - Erath</option>	<option value="074">074 - Falls</option>	<option value="075">075 - Fannin</option>	<option value="076">076 - Fayette</option>	<option value="077">077 - Fisher</option>	<option value="078">078 - Floyd</option>	<option value="079">079 - Foard</option>	<option value="080">080 - Fort Bend</option>	<option value="081">081 - Franklin</option>	<option value="082">082 - Freestone</option>	<option value="083">083 - Frio</option>	<option value="084">084 - Gaines</option>	<option value="085">085 - Galveston</option>	<option value="086">086 - Garza</option>	<option value="087">087 - Gillespie</option>	<option value="088">088 - Glasscock</option>	<option value="089">089 - Goliad</option>	<option value="090">090 - Gonzales</option>	<option value="091">091 - Gray</option>	<option value="092">092 - Grayson</option>	<option value="093">093 - Gregg</option>	<option value="094">094 - Grimes</option>	<option value="095">095 - Guadalupe</option>	<option value="096">096 - Hale</option>	<option value="097">097 - Hall</option>	<option value="098">098 - Hamilton</option>	<option value="099">099 - Hansford</option>	<option value="100">100 - Hardeman</option>	<option value="101">101 - Hardin</option>	<option value="102">102 - Harris</option>	<option value="103">103 - Harrison</option>	<option value="104">104 - Hartley</option>	<option value="105">105 - Haskell</option>	<option value="106">106 - Hays</option>	<option value="107">107 - Hemphill</option>	<option value="108">108 - Henderson</option>	<option value="109">109 - Hidalgo</option>	<option value="110">110 - Hill</option>	<option value="111">111 - Hockley</option>	<option value="112">112 - Hood</option>	<option value="113">113 - Hopkins</option>	<option value="114">114 - Houston</option>	<option value="115">115 - Howard</option>	<option value="116">116 - Hudspeth</option>	<option value="117">117 - Hunt</option>	<option value="118">118 - Hutchinson</option>	<option value="119">119 - Irion</option>	<option value="120">120 - Jack</option>	<option value="121">121 - Jackson</option>	<option value="122">122 - Jasper</option>	<option value="123">123 - Jeff Davis</option>	<option value="124">124 - Jefferson</option>	<option value="125">125 - Jim Hogg</option>	<option value="126">126 - Jim Wells</option>	<option value="127">127 - Johnson</option>	<option value="128">128 - Jones</option>	<option value="129">129 - Karnes</option>	<option value="130">130 - Kaufman</option>	<option value="131">131 - Kendall</option>	<option value="132">132 - Kent</option>	<option value="133">133 - Kerr</option>	<option value="134">134 - Kimble</option>	<option value="135">135 - King</option>	<option value="136">136 - Kinney</option>	<option value="137">137 - Kleberg</option>	<option value="138">138 - Knox</option>	<option value="139">139 - Lamar</option>	<option value="140">140 - Lamb</option>	<option value="141">141 - Lampasas</option>	<option value="142">142 - La Salle</option>	<option value="143">143 - Lavaca</option>	<option value="144">144 - Lee</option>	<option value="145">145 - Leon</option>	<option value="146">146 - Liberty</option>	<option value="147">147 - Limestone</option>	<option value="148">148 - Lipscomb</option>	<option value="149">149 - Live Oak</option>	<option value="150">150 - Llano</option>	<option value="151">151 - Loving</option>	<option value="152">152 - Lubbock</option>	<option value="153">153 - Lynn</option>	<option value="154">154 - Madison</option>	<option value="155">155 - Marion</option>	<option value="156">156 - Martin</option>	<option value="157">157 - Mason</option>	<option value="158">158 - Matagorda</option>	<option value="159">159 - Maverick</option>	<option value="160">160 - McCulloch</option>	<option value="161">161 - McLennan</option>	<option value="162">162 - McMullen</option>	<option value="163">163 - Medina</option>	<option value="164">164 - Menard</option>	<option value="165">165 - Midland</option>	<option value="166">166 - Milam</option>	<option value="167">167 - Mills</option>	<option value="168">168 - Mitchell</option>	<option value="169">169 - Montague</option>	<option value="170">170 - Montgomery</option>	<option value="171">171 - Moore</option>	<option value="172">172 - Morris</option>	<option value="173">173 - Motley</option>	<option value="174">174 - Nacogdoches</option>	<option value="175">175 - Navarro</option>	<option value="176">176 - Newton</option>	<option value="177">177 - Nolan</option>	<option value="178">178 - Nueces</option>	<option value="179">179 - Ochiltree</option>	<option value="180">180 - Oldham</option>	<option value="181">181 - Orange</option>	<option value="182">182 - Palo Pinto</option>	<option value="183">183 - Panola</option>	<option value="184">184 - Parker</option>	<option value="185">185 - Parmer</option>	<option value="186">186 - Pecos</option>	<option value="187">187 - Polk</option>	<option value="188">188 - Potter</option>	<option value="189">189 - Presidio</option>	<option value="190">190 - Rains</option>	<option value="191">191 - Randall</option>	<option value="192">192 - Reagan</option>	<option value="193">193 - Real</option>	<option value="194">194 - Red River</option>	<option value="195">195 - Reeves</option>	<option value="196">196 - Refugio</option>	<option value="197">197 - Roberts</option>	<option value="198">198 - Robertson</option>	<option value="199">199 - Rockwall</option>	<option value="200">200 - Runnels</option>	<option value="201">201 - Rusk</option>	<option value="202">202 - Sabine</option>	<option value="203">203 - San Augustine</option>	<option value="204">204 - San Jacinto</option>	<option value="205">205 - San Patricio</option>	<option value="206">206 - San Saba</option>	<option value="207">207 - Schleicher</option>	<option value="208">208 - Scurry</option>	<option value="209">209 - Shackelford</option>	<option value="210">210 - Shelby</option>	<option value="211">211 - Sherman</option>	<option value="212">212 - Smith</option>	<option value="213">213 - Somervell</option>	<option value="214">214 - Starr</option>	<option value="215">215 - Stephens</option>	<option value="216">216 - Sterling</option>	<option value="217">217 - Stonewall</option>	<option value="218">218 - Sutton</option>	<option value="219">219 - Swisher</option>	<option value="220">220 - Tarrant</option>	<option value="221">221 - Taylor</option>	<option value="222">222 - Terrell</option>	<option value="223">223 - Terry</option>	<option value="224">224 - Throckmorton</option>	<option value="225">225 - Titus</option>	<option value="226">226 - Tom Green</option>	<option value="227">227 - Travis</option>	<option value="228">228 - Trinity</option>	<option value="229">229 - Tyler</option>	<option value="230">230 - Upshur</option>	<option value="231">231 - Upton</option>	<option value="232">232 - Uvalde</option>	<option value="233">233 - Val Verde</option>	<option value="234">234 - Van Zandt</option>	<option value="235">235 - Victoria</option>	<option value="236">236 - Walker</option>	<option value="237">237 - Waller</option>	<option value="238">238 - Ward</option>	<option value="239">239 - Washington</option>	<option value="240">240 - Webb</option>	<option value="241">241 - Wharton</option>	<option value="242">242 - Wheeler</option>	<option value="243">243 - Wichita</option>	<option value="244">244 - Wilbarger</option>	<option value="245">245 - Willacy</option>	<option value="246">246 - Williamson</option>	<option value="247">247 - Wilson</option>	<option value="248">248 - Winkler</option>	<option value="249">249 - Wise</option>	<option value="250">250 - Wood</option>	<option value="251">251 - Yoakum</option>	<option value="252">252 - Young</option>	<option value="253">253 - Zapata</option>	<option value="254">254 - Zavala</option>
+                    </select>
+                </div>
+                <div id="cpLeftCenter" data-dojo-type="dijit/layout/ContentPane" data-dojo-props="region:'center'">
+                    <div id="editBar"></div>
+                    <div id="editTemplate"></div>
+                    
+                    <div id="legend"></div>
+                    
+                    
+                </div>
+                <div id="cpLeftBottom" data-dojo-type="dijit/layout/ContentPane" data-dojo-props="region:'bottom'">
+                    <div id="resources">Resources:
+                        <br><a href="./RESOURCES/ApplicationInstructions.pdf" target="Instructions" title="How to use this Webmap">Instructions</a>
+                        <br><a href="./RESOURCES/COUNTY_ROAD_CRITERIA.pdf" target="CRI Criteria" title="TxDOT Definition of a County Road">Criteria</a>
+                        <br><a href="ftp://ftp.dot.state.tx.us/pub/txdot-info/tpp/countyfiles/2015/" id="FTPlink" target="Download" title="Download CRI Zipfile Packet for Selected County">Download Packet</a>
+                    </div>
+                    <div id="cpTopRight" data-dojo-type="dijit/layout/ContentPane" data-dojo-props="region:'right'">
+                        <img src="./RESOURCES/Logo for Maps.png" alt="Logo" height="45" width="63">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="cpCenter" data-dojo-type="dijit/layout/ContentPane" data-dojo-props="region:'center'">
+            <div id="divMap">
+                <div style="position:absolute; right:14px; top:7px; z-Index:999;">
+                  <div data-dojo-type="dijit/TitlePane" 
+                       data-dojo-props="title:'Switch Basemap', closable:false, open:false">
+                    <div data-dojo-type="dijit/layout/ContentPane" style="width:380px; height:280px; overflow:auto;">
+                      <div id="basemapGallery"></div>
+                    </div>
+                  </div>
+                </div>
+                <div style="position:absolute; right:14px; bottom:7px; z-Index:999;">
+                  <div id="openWindow" data-dojo-type="dijit/TitlePane" 
+                       data-dojo-props="title:'Attributes', closable:false, open:false">
+                    <div id="openWindowCP" data-dojo-type="dijit/layout/ContentPane" style="width:300px; height:115px; overflow:auto;">
+                      <div id="attributeWindow"></div>
+                    </div>
+                  </div>
+                </div>
+                <span id="info"></span>
+            </div>
+        </div>
+      </div>
+    </body>
+</html>

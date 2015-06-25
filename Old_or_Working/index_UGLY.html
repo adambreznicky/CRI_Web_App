@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<!--
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+-->
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <title>TxDOT County Road Inventory</title>
+        <link rel="stylesheet" href="http://js.arcgis.com/3.12/esri/css/esri.css">
+        <style type="text/css">
+            html, body, #divMap {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+          }
+          body {
+            background-color: #FFF;
+            overflow: hidden;
+            font-family: "Trebuchet MS";
+          }
+          #bcMain, #cpCenter {
+            width: 100%;
+            height: 100%;
+          }
+          #cpTop {
+            height:60px;
+          }
+          #cpLeft {
+            width: 215px;
+            overflow: hidden;
+          }
+        </style>
+        <script> var dojoConfig = {async: true};</script>
+        <script src="http://js.arcgis.com/3.12/"></script>
+        <script>
+            var map;
+            var countiesURL;
+            var counties;
+            var countyNumber;
+            
+            require(["esri/map",
+                "esri/layers/FeatureLayer",
+                "esri/geometry/Extent",
+                
+                "esri/tasks/query",
+                "esri/tasks/QueryTask",
+                
+                "esri/tasks/GeometryService",
+                "esri/dijit/editing/Editor",
+                "esri/dijit/editing/TemplatePicker",
+                "esri/config",
+                
+                "dojo/ready", 
+                "dojo/parser", 
+                "dojo/on",
+                "dojo/dom",
+                "dojo/_base/array",
+
+                "dijit/form/Select",
+                "dojo/data/ObjectStore",
+                "dojo/store/Memory",
+                "dijit/layout/BorderContainer", 
+                "dijit/layout/ContentPane",
+                
+                "dojo/domReady!"], 
+            function(Map, FeatureLayer, Extent,
+                    Query, QueryTask,
+                    GeometryService, Editor, TemplatePicker, config,
+                    ready, parser, on, dom, array,
+                    Select, ObjectStore, Memory) { 
+                
+                parser.parse();
+                config.defaults.io.proxyUrl = "http://localhost/proxy/proxy.ashx";
+                
+                map = new Map("divMap", {
+                  center: [-99.5, 31],
+                  zoom: 6,
+                  basemap: "topo"
+                });
+                
+                countiesURL = "http://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/Counties3857/FeatureServer/0";
+                counties = new FeatureLayer(countiesURL,{
+                    mode: FeatureLayer.MODE_ONDEMAND,
+                    outFields: ["CNTY_NM", "CNTY_NBR"]
+                });
+                updatesURL = "http://services.arcgis.com/KTcxiTD9dsQw4r7Z/ArcGIS/rest/services/CRI_updates/FeatureServer/0";
+                updates = new FeatureLayer(updatesURL);
+                
+                map.on("layers-add-result, initEditor");
+                map.addLayers([counties, updates]);
+                
+                
+                var s = new Select({
+                    name: "CountySelect",
+                    options: [
+                        { value:"001", label:'001 - Anderson' },	{ value:"002", label:'002 - Andrews' },	{ value:"003", label:'003 - Angelina' },	{ value:"004", label:'004 - Aransas' },	{ value:"005", label:'005 - Archer' },	{ value:"006", label:'006 - Armstrong' },	{ value:"007", label:'007 - Atascosa' },	{ value:"008", label:'008 - Austin' },	{ value:"009", label:'009 - Bailey' },	{ value:"010", label:'010 - Bandera' },	{ value:"011", label:'011 - Bastrop' },	{ value:"012", label:'012 - Baylor' },	{ value:"013", label:'013 - Bee' },	{ value:"014", label:'014 - Bell' },	{ value:"015", label:'015 - Bexar' },	{ value:"016", label:'016 - Blanco' },	{ value:"017", label:'017 - Borden' },	{ value:"018", label:'018 - Bosque' },	{ value:"019", label:'019 - Bowie' },	{ value:"020", label:'020 - Brazoria' },	{ value:"021", label:'021 - Brazos' },	{ value:"022", label:'022 - Brewster' },	{ value:"023", label:'023 - Briscoe' },	{ value:"024", label:'024 - Brooks' },	{ value:"025", label:'025 - Brown' },	{ value:"026", label:'026 - Burleson' },	{ value:"027", label:'027 - Burnet' },	{ value:"028", label:'028 - Caldwell' },	{ value:"029", label:'029 - Calhoun' },	{ value:"030", label:'030 - Callahan' },	{ value:"031", label:'031 - Cameron' },	{ value:"032", label:'032 - Camp' },	{ value:"033", label:'033 - Carson' },	{ value:"034", label:'034 - Cass' },	{ value:"035", label:'035 - Castro' },	{ value:"036", label:'036 - Chambers' },	{ value:"037", label:'037 - Cherokee' },	{ value:"038", label:'038 - Childress' },	{ value:"039", label:'039 - Clay' },	{ value:"040", label:'040 - Cochran' },	{ value:"041", label:'041 - Coke' },	{ value:"042", label:'042 - Coleman' },	{ value:"043", label:'043 - Collin' },	{ value:"044", label:'044 - Collingsworth' },	{ value:"045", label:'045 - Colorado' },	{ value:"046", label:'046 - Comal' },	{ value:"047", label:'047 - Comanche' },	{ value:"048", label:'048 - Concho' },	{ value:"049", label:'049 - Cooke' },	{ value:"050", label:'050 - Coryell' },	{ value:"051", label:'051 - Cottle' },	{ value:"052", label:'052 - Crane' },	{ value:"053", label:'053 - Crockett' },	{ value:"054", label:'054 - Crosby' },	{ value:"055", label:'055 - Culberson' },	{ value:"056", label:'056 - Dallam' },	{ value:"057", label:'057 - Dallas' },	{ value:"058", label:'058 - Dawson' },	{ value:"059", label:'059 - Deaf Smith' },	{ value:"060", label:'060 - Delta' },	{ value:"061", label:'061 - Denton' },	{ value:"062", label:'062 - De Witt' },	{ value:"063", label:'063 - Dickens' },	{ value:"064", label:'064 - Dimmit' },	{ value:"065", label:'065 - Donley' },	{ value:"066", label:'066 - Kenedy' },	{ value:"067", label:'067 - Duval' },	{ value:"068", label:'068 - Eastland' },	{ value:"069", label:'069 - Ector' },	{ value:"070", label:'070 - Edwards' },	{ value:"071", label:'071 - Ellis' },	{ value:"072", label:'072 - El Paso' },	{ value:"073", label:'073 - Erath' },	{ value:"074", label:'074 - Falls' },	{ value:"075", label:'075 - Fannin' },	{ value:"076", label:'076 - Fayette' },	{ value:"077", label:'077 - Fisher' },	{ value:"078", label:'078 - Floyd' },	{ value:"079", label:'079 - Foard' },	{ value:"080", label:'080 - Fort Bend' },	{ value:"081", label:'081 - Franklin' },	{ value:"082", label:'082 - Freestone' },	{ value:"083", label:'083 - Frio' },	{ value:"084", label:'084 - Gaines' },	{ value:"085", label:'085 - Galveston' },	{ value:"086", label:'086 - Garza' },	{ value:"087", label:'087 - Gillespie' },	{ value:"088", label:'088 - Glasscock' },	{ value:"089", label:'089 - Goliad' },	{ value:"090", label:'090 - Gonzales' },	{ value:"091", label:'091 - Gray' },	{ value:"092", label:'092 - Grayson' },	{ value:"093", label:'093 - Gregg' },	{ value:"094", label:'094 - Grimes' },	{ value:"095", label:'095 - Guadalupe' },	{ value:"096", label:'096 - Hale' },	{ value:"097", label:'097 - Hall' },	{ value:"098", label:'098 - Hamilton' },	{ value:"099", label:'099 - Hansford' },	{ value:"100", label:'100 - Hardeman' },	{ value:"101", label:'101 - Hardin' },	{ value:"102", label:'102 - Harris' },	{ value:"103", label:'103 - Harrison' },	{ value:"104", label:'104 - Hartley' },	{ value:"105", label:'105 - Haskell' },	{ value:"106", label:'106 - Hays' },	{ value:"107", label:'107 - Hemphill' },	{ value:"108", label:'108 - Henderson' },	{ value:"109", label:'109 - Hidalgo' },	{ value:"110", label:'110 - Hill' },	{ value:"111", label:'111 - Hockley' },	{ value:"112", label:'112 - Hood' },	{ value:"113", label:'113 - Hopkins' },	{ value:"114", label:'114 - Houston' },	{ value:"115", label:'115 - Howard' },	{ value:"116", label:'116 - Hudspeth' },	{ value:"117", label:'117 - Hunt' },	{ value:"118", label:'118 - Hutchinson' },	{ value:"119", label:'119 - Irion' },	{ value:"120", label:'120 - Jack' },	{ value:"121", label:'121 - Jackson' },	{ value:"122", label:'122 - Jasper' },	{ value:"123", label:'123 - Jeff Davis' },	{ value:"124", label:'124 - Jefferson' },	{ value:"125", label:'125 - Jim Hogg' },	{ value:"126", label:'126 - Jim Wells' },	{ value:"127", label:'127 - Johnson' },	{ value:"128", label:'128 - Jones' },	{ value:"129", label:'129 - Karnes' },	{ value:"130", label:'130 - Kaufman' },	{ value:"131", label:'131 - Kendall' },	{ value:"132", label:'132 - Kent' },	{ value:"133", label:'133 - Kerr' },	{ value:"134", label:'134 - Kimble' },	{ value:"135", label:'135 - King' },	{ value:"136", label:'136 - Kinney' },	{ value:"137", label:'137 - Kleberg' },	{ value:"138", label:'138 - Knox' },	{ value:"139", label:'139 - Lamar' },	{ value:"140", label:'140 - Lamb' },	{ value:"141", label:'141 - Lampasas' },	{ value:"142", label:'142 - La Salle' },	{ value:"143", label:'143 - Lavaca' },	{ value:"144", label:'144 - Lee' },	{ value:"145", label:'145 - Leon' },	{ value:"146", label:'146 - Liberty' },	{ value:"147", label:'147 - Limestone' },	{ value:"148", label:'148 - Lipscomb' },	{ value:"149", label:'149 - Live Oak' },	{ value:"150", label:'150 - Llano' },	{ value:"151", label:'151 - Loving' },	{ value:"152", label:'152 - Lubbock' },	{ value:"153", label:'153 - Lynn' },	{ value:"154", label:'154 - Madison' },	{ value:"155", label:'155 - Marion' },	{ value:"156", label:'156 - Martin' },	{ value:"157", label:'157 - Mason' },	{ value:"158", label:'158 - Matagorda' },	{ value:"159", label:'159 - Maverick' },	{ value:"160", label:'160 - McCulloch' },	{ value:"161", label:'161 - McLennan' },	{ value:"162", label:'162 - McMullen' },	{ value:"163", label:'163 - Medina' },	{ value:"164", label:'164 - Menard' },	{ value:"165", label:'165 - Midland' },	{ value:"166", label:'166 - Milam' },	{ value:"167", label:'167 - Mills' },	{ value:"168", label:'168 - Mitchell' },	{ value:"169", label:'169 - Montague' },	{ value:"170", label:'170 - Montgomery' },	{ value:"171", label:'171 - Moore' },	{ value:"172", label:'172 - Morris' },	{ value:"173", label:'173 - Motley' },	{ value:"174", label:'174 - Nacogdoches' },	{ value:"175", label:'175 - Navarro' },	{ value:"176", label:'176 - Newton' },	{ value:"177", label:'177 - Nolan' },	{ value:"178", label:'178 - Nueces' },	{ value:"179", label:'179 - Ochiltree' },	{ value:"180", label:'180 - Oldham' },	{ value:"181", label:'181 - Orange' },	{ value:"182", label:'182 - Palo Pinto' },	{ value:"183", label:'183 - Panola' },	{ value:"184", label:'184 - Parker' },	{ value:"185", label:'185 - Parmer' },	{ value:"186", label:'186 - Pecos' },	{ value:"187", label:'187 - Polk' },	{ value:"188", label:'188 - Potter' },	{ value:"189", label:'189 - Presidio' },	{ value:"190", label:'190 - Rains' },	{ value:"191", label:'191 - Randall' },	{ value:"192", label:'192 - Reagan' },	{ value:"193", label:'193 - Real' },	{ value:"194", label:'194 - Red River' },	{ value:"195", label:'195 - Reeves' },	{ value:"196", label:'196 - Refugio' },	{ value:"197", label:'197 - Roberts' },	{ value:"198", label:'198 - Robertson' },	{ value:"199", label:'199 - Rockwall' },	{ value:"200", label:'200 - Runnels' },	{ value:"201", label:'201 - Rusk' },	{ value:"202", label:'202 - Sabine' },	{ value:"203", label:'203 - San Augustine' },	{ value:"204", label:'204 - San Jacinto' },	{ value:"205", label:'205 - San Patricio' },	{ value:"206", label:'206 - San Saba' },	{ value:"207", label:'207 - Schleicher' },	{ value:"208", label:'208 - Scurry' },	{ value:"209", label:'209 - Shackelford' },	{ value:"210", label:'210 - Shelby' },	{ value:"211", label:'211 - Sherman' },	{ value:"212", label:'212 - Smith' },	{ value:"213", label:'213 - Somervell' },	{ value:"214", label:'214 - Starr' },	{ value:"215", label:'215 - Stephens' },	{ value:"216", label:'216 - Sterling' },	{ value:"217", label:'217 - Stonewall' },	{ value:"218", label:'218 - Sutton' },	{ value:"219", label:'219 - Swisher' },	{ value:"220", label:'220 - Tarrant' },	{ value:"221", label:'221 - Taylor' },	{ value:"222", label:'222 - Terrell' },	{ value:"223", label:'223 - Terry' },	{ value:"224", label:'224 - Throckmorton' },	{ value:"225", label:'225 - Titus' },	{ value:"226", label:'226 - Tom Green' },	{ value:"227", label:'227 - Travis' },	{ value:"228", label:'228 - Trinity' },	{ value:"229", label:'229 - Tyler' },	{ value:"230", label:'230 - Upshur' },	{ value:"231", label:'231 - Upton' },	{ value:"232", label:'232 - Uvalde' },	{ value:"233", label:'233 - Val Verde' },	{ value:"234", label:'234 - Van Zandt' },	{ value:"235", label:'235 - Victoria' },	{ value:"236", label:'236 - Walker' },	{ value:"237", label:'237 - Waller' },	{ value:"238", label:'238 - Ward' },	{ value:"239", label:'239 - Washington' },	{ value:"240", label:'240 - Webb' },	{ value:"241", label:'241 - Wharton' },	{ value:"242", label:'242 - Wheeler' },	{ value:"243", label:'243 - Wichita' },	{ value:"244", label:'244 - Wilbarger' },	{ value:"245", label:'245 - Willacy' },	{ value:"246", label:'246 - Williamson' },	{ value:"247", label:'247 - Wilson' },	{ value:"248", label:'248 - Winkler' },	{ value:"249", label:'249 - Wise' },	{ value:"250", label:'250 - Wood' },	{ value:"251", label:'251 - Yoakum' },	{ value:"252", label:'252 - Young' },	{ value:"253", label:'253 - Zapata' },	{ value:"254", label:'254 - Zavala' }
+                    ]
+                }, "selectCounty");
+                s.startup();
+                s.on("change", function(){
+                    countyNumber = s.attr("value");
+                    var expression = "CNTY_NBR = '" + countyNumber + "'";
+                    counties.setDefinitionExpression(expression);
+                    counties.redraw();
+                    
+//                    var queryTask = new QueryTask(countiesURL);
+//                    var query = new Query();
+//                    query.where = expression;
+//                    queryTask.executeForExtent(query, function(result){
+//                        map.centerAndZoom(new Extent(result), 10);
+//                    }, function(error){
+//                        console.log(error);
+//                    });
+                });
+            
+                
+            });
+            
+            
+            
+        </script>
+        
+    </head>
+    <body class="nihilo">
+      <div id="bcMain" data-dojo-type="dijit/layout/BorderContainer" data-dojo-props="design:'sidebar'" >
+        <div id="cpTop" data-dojo-type="dijit/layout/ContentPane" data-dojo-props="region:'top'">
+            <div id="divTop">
+<!--                <select id="selectCounty" data-dojo-type="dijit/form/Select">
+			<option value="001">001 - Anderson</option>	<option value="002">002 - Andrews</option>	<option value="003">003 - Angelina</option>	<option value="004">004 - Aransas</option>	<option value="005">005 - Archer</option>	<option value="006">006 - Armstrong</option>	<option value="007">007 - Atascosa</option>	<option value="008">008 - Austin</option>	<option value="009">009 - Bailey</option>	<option value="010">010 - Bandera</option>	<option value="011">011 - Bastrop</option>	<option value="012">012 - Baylor</option>	<option value="013">013 - Bee</option>	<option value="014">014 - Bell</option>	<option value="015">015 - Bexar</option>	<option value="016">016 - Blanco</option>	<option value="017">017 - Borden</option>	<option value="018">018 - Bosque</option>	<option value="019">019 - Bowie</option>	<option value="020">020 - Brazoria</option>	<option value="021">021 - Brazos</option>	<option value="022">022 - Brewster</option>	<option value="023">023 - Briscoe</option>	<option value="024">024 - Brooks</option>	<option value="025">025 - Brown</option>	<option value="026">026 - Burleson</option>	<option value="027">027 - Burnet</option>	<option value="028">028 - Caldwell</option>	<option value="029">029 - Calhoun</option>	<option value="030">030 - Callahan</option>	<option value="031">031 - Cameron</option>	<option value="032">032 - Camp</option>	<option value="033">033 - Carson</option>	<option value="034">034 - Cass</option>	<option value="035">035 - Castro</option>	<option value="036">036 - Chambers</option>	<option value="037">037 - Cherokee</option>	<option value="038">038 - Childress</option>	<option value="039">039 - Clay</option>	<option value="040">040 - Cochran</option>	<option value="041">041 - Coke</option>	<option value="042">042 - Coleman</option>	<option value="043">043 - Collin</option>	<option value="044">044 - Collingsworth</option>	<option value="045">045 - Colorado</option>	<option value="046">046 - Comal</option>	<option value="047">047 - Comanche</option>	<option value="048">048 - Concho</option>	<option value="049">049 - Cooke</option>	<option value="050">050 - Coryell</option>	<option value="051">051 - Cottle</option>	<option value="052">052 - Crane</option>	<option value="053">053 - Crockett</option>	<option value="054">054 - Crosby</option>	<option value="055">055 - Culberson</option>	<option value="056">056 - Dallam</option>	<option value="057">057 - Dallas</option>	<option value="058">058 - Dawson</option>	<option value="059">059 - Deaf Smith</option>	<option value="060">060 - Delta</option>	<option value="061">061 - Denton</option>	<option value="062">062 - De Witt</option>	<option value="063">063 - Dickens</option>	<option value="064">064 - Dimmit</option>	<option value="065">065 - Donley</option>	<option value="066">066 - Kenedy</option>	<option value="067">067 - Duval</option>	<option value="068">068 - Eastland</option>	<option value="069">069 - Ector</option>	<option value="070">070 - Edwards</option>	<option value="071">071 - Ellis</option>	<option value="072">072 - El Paso</option>	<option value="073">073 - Erath</option>	<option value="074">074 - Falls</option>	<option value="075">075 - Fannin</option>	<option value="076">076 - Fayette</option>	<option value="077">077 - Fisher</option>	<option value="078">078 - Floyd</option>	<option value="079">079 - Foard</option>	<option value="080">080 - Fort Bend</option>	<option value="081">081 - Franklin</option>	<option value="082">082 - Freestone</option>	<option value="083">083 - Frio</option>	<option value="084">084 - Gaines</option>	<option value="085">085 - Galveston</option>	<option value="086">086 - Garza</option>	<option value="087">087 - Gillespie</option>	<option value="088">088 - Glasscock</option>	<option value="089">089 - Goliad</option>	<option value="090">090 - Gonzales</option>	<option value="091">091 - Gray</option>	<option value="092">092 - Grayson</option>	<option value="093">093 - Gregg</option>	<option value="094">094 - Grimes</option>	<option value="095">095 - Guadalupe</option>	<option value="096">096 - Hale</option>	<option value="097">097 - Hall</option>	<option value="098">098 - Hamilton</option>	<option value="099">099 - Hansford</option>	<option value="100">100 - Hardeman</option>	<option value="101">101 - Hardin</option>	<option value="102">102 - Harris</option>	<option value="103">103 - Harrison</option>	<option value="104">104 - Hartley</option>	<option value="105">105 - Haskell</option>	<option value="106">106 - Hays</option>	<option value="107">107 - Hemphill</option>	<option value="108">108 - Henderson</option>	<option value="109">109 - Hidalgo</option>	<option value="110">110 - Hill</option>	<option value="111">111 - Hockley</option>	<option value="112">112 - Hood</option>	<option value="113">113 - Hopkins</option>	<option value="114">114 - Houston</option>	<option value="115">115 - Howard</option>	<option value="116">116 - Hudspeth</option>	<option value="117">117 - Hunt</option>	<option value="118">118 - Hutchinson</option>	<option value="119">119 - Irion</option>	<option value="120">120 - Jack</option>	<option value="121">121 - Jackson</option>	<option value="122">122 - Jasper</option>	<option value="123">123 - Jeff Davis</option>	<option value="124">124 - Jefferson</option>	<option value="125">125 - Jim Hogg</option>	<option value="126">126 - Jim Wells</option>	<option value="127">127 - Johnson</option>	<option value="128">128 - Jones</option>	<option value="129">129 - Karnes</option>	<option value="130">130 - Kaufman</option>	<option value="131">131 - Kendall</option>	<option value="132">132 - Kent</option>	<option value="133">133 - Kerr</option>	<option value="134">134 - Kimble</option>	<option value="135">135 - King</option>	<option value="136">136 - Kinney</option>	<option value="137">137 - Kleberg</option>	<option value="138">138 - Knox</option>	<option value="139">139 - Lamar</option>	<option value="140">140 - Lamb</option>	<option value="141">141 - Lampasas</option>	<option value="142">142 - La Salle</option>	<option value="143">143 - Lavaca</option>	<option value="144">144 - Lee</option>	<option value="145">145 - Leon</option>	<option value="146">146 - Liberty</option>	<option value="147">147 - Limestone</option>	<option value="148">148 - Lipscomb</option>	<option value="149">149 - Live Oak</option>	<option value="150">150 - Llano</option>	<option value="151">151 - Loving</option>	<option value="152">152 - Lubbock</option>	<option value="153">153 - Lynn</option>	<option value="154">154 - Madison</option>	<option value="155">155 - Marion</option>	<option value="156">156 - Martin</option>	<option value="157">157 - Mason</option>	<option value="158">158 - Matagorda</option>	<option value="159">159 - Maverick</option>	<option value="160">160 - McCulloch</option>	<option value="161">161 - McLennan</option>	<option value="162">162 - McMullen</option>	<option value="163">163 - Medina</option>	<option value="164">164 - Menard</option>	<option value="165">165 - Midland</option>	<option value="166">166 - Milam</option>	<option value="167">167 - Mills</option>	<option value="168">168 - Mitchell</option>	<option value="169">169 - Montague</option>	<option value="170">170 - Montgomery</option>	<option value="171">171 - Moore</option>	<option value="172">172 - Morris</option>	<option value="173">173 - Motley</option>	<option value="174">174 - Nacogdoches</option>	<option value="175">175 - Navarro</option>	<option value="176">176 - Newton</option>	<option value="177">177 - Nolan</option>	<option value="178">178 - Nueces</option>	<option value="179">179 - Ochiltree</option>	<option value="180">180 - Oldham</option>	<option value="181">181 - Orange</option>	<option value="182">182 - Palo Pinto</option>	<option value="183">183 - Panola</option>	<option value="184">184 - Parker</option>	<option value="185">185 - Parmer</option>	<option value="186">186 - Pecos</option>	<option value="187">187 - Polk</option>	<option value="188">188 - Potter</option>	<option value="189">189 - Presidio</option>	<option value="190">190 - Rains</option>	<option value="191">191 - Randall</option>	<option value="192">192 - Reagan</option>	<option value="193">193 - Real</option>	<option value="194">194 - Red River</option>	<option value="195">195 - Reeves</option>	<option value="196">196 - Refugio</option>	<option value="197">197 - Roberts</option>	<option value="198">198 - Robertson</option>	<option value="199">199 - Rockwall</option>	<option value="200">200 - Runnels</option>	<option value="201">201 - Rusk</option>	<option value="202">202 - Sabine</option>	<option value="203">203 - San Augustine</option>	<option value="204">204 - San Jacinto</option>	<option value="205">205 - San Patricio</option>	<option value="206">206 - San Saba</option>	<option value="207">207 - Schleicher</option>	<option value="208">208 - Scurry</option>	<option value="209">209 - Shackelford</option>	<option value="210">210 - Shelby</option>	<option value="211">211 - Sherman</option>	<option value="212">212 - Smith</option>	<option value="213">213 - Somervell</option>	<option value="214">214 - Starr</option>	<option value="215">215 - Stephens</option>	<option value="216">216 - Sterling</option>	<option value="217">217 - Stonewall</option>	<option value="218">218 - Sutton</option>	<option value="219">219 - Swisher</option>	<option value="220">220 - Tarrant</option>	<option value="221">221 - Taylor</option>	<option value="222">222 - Terrell</option>	<option value="223">223 - Terry</option>	<option value="224">224 - Throckmorton</option>	<option value="225">225 - Titus</option>	<option value="226">226 - Tom Green</option>	<option value="227">227 - Travis</option>	<option value="228">228 - Trinity</option>	<option value="229">229 - Tyler</option>	<option value="230">230 - Upshur</option>	<option value="231">231 - Upton</option>	<option value="232">232 - Uvalde</option>	<option value="233">233 - Val Verde</option>	<option value="234">234 - Van Zandt</option>	<option value="235">235 - Victoria</option>	<option value="236">236 - Walker</option>	<option value="237">237 - Waller</option>	<option value="238">238 - Ward</option>	<option value="239">239 - Washington</option>	<option value="240">240 - Webb</option>	<option value="241">241 - Wharton</option>	<option value="242">242 - Wheeler</option>	<option value="243">243 - Wichita</option>	<option value="244">244 - Wilbarger</option>	<option value="245">245 - Willacy</option>	<option value="246">246 - Williamson</option>	<option value="247">247 - Wilson</option>	<option value="248">248 - Winkler</option>	<option value="249">249 - Wise</option>	<option value="250">250 - Wood</option>	<option value="251">251 - Yoakum</option>	<option value="252">252 - Young</option>	<option value="253">253 - Zapata</option>	<option value="254">254 - Zavala</option>
+                </select>-->
+                <div id="selectCounty"></div>
+            </div>
+        </div>
+        <div id="cpLeft" data-dojo-type="dijit/layout/ContentPane" data-dojo-props="region:'left'">
+          <div id="divLeft"></div>
+        </div>
+        <div id="cpCenter" data-dojo-type="dijit/layout/ContentPane" data-dojo-props="region:'center'">
+          <div id="divMap"></div>
+        </div>
+      </div>
+    </body>
+</html>
