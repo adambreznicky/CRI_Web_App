@@ -100,7 +100,6 @@
                 "esri/symbols/SimpleLineSymbol",
                 "esri/Color",
                 "esri/renderers/SimpleRenderer",
-                "esri/symbols/SimpleFillSymbol",
                 
                 "esri/tasks/GeometryService",
                 "esri/dijit/editing/Editor",
@@ -132,7 +131,7 @@
                 
                 "dojo/domReady!"], 
             function(Map, FeatureLayer, Extent, BasemapGallery, Basemap, BasemapLayer, Legend,
-                    Query, QueryTask, Graphic, UniqueValueRenderer, SimpleLineSymbol, Color, SimpleRenderer, SimpleFillSymbol,
+                    Query, QueryTask, Graphic, UniqueValueRenderer, SimpleLineSymbol, Color, SimpleRenderer,
                     GeometryService, Editor, TemplatePicker, LengthsParameters, geodesicUtils, config,
                     Geometry, Units, ready, parser, on, dom, array, arcgisUtils, Tiled,
                     SpatialReference, webMercatorUtils, Scalebar, TextSymbol, LabelLayer) {
@@ -150,8 +149,8 @@
                     logo: false
                 });
                 map.on("load", function() {
-		        map.on("mouse-move", showCoordinates);
-                map.on("mouse-drag", showCoordinates);
+		  map.on("mouse-move", showCoordinates);
+                  map.on("mouse-drag", showCoordinates);
                 });
                 map.on("zoom-end", function() {
                     var current = document.getElementById("info").innerHTML;
@@ -233,17 +232,15 @@
                     attachTo: "bottom-left"
                 });
                 
-                var countyRr = new SimpleRenderer(new SimpleFillSymbol(SimpleFillSymbol.STYLE_SOLID, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([255,0,0]), 2), new Color([255,0,0])));
                 countiesURL = "http://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/Political/FeatureServer/0";
                 counties = new FeatureLayer(countiesURL,{
                     mode: FeatureLayer.MODE_ONDEMAND,
                     visible: false,
-                    opacity: .5,
+                    opacity: .6,
                     showLabels: false,
                     outFields: ["CNTY_NM", "CNTY_NBR"]
                 });
-                counties.setRenderer(countyRr);
-
+                
                 updatesURL = "http://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/InventoryUpdates/FeatureServer/0";
                 updatesLyr = new FeatureLayer(updatesURL,{
                     mode: FeatureLayer.MODE_ONDEMAND,
